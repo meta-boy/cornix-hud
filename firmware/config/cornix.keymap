@@ -1,0 +1,110 @@
+/*
+ * Cornix keymap matching the stock Jezail Funder firmware (the printed keycap
+ * legends), ported from a Vial dump of the stock RMK build.
+ *
+ * Stock RMK used KC_NO on every unassigned upper-layer key, and so does this,
+ * except the left-hand modifiers (Shift, Ctrl, Cmd, Alt), which are
+ * transparent wherever they are free so Shift can follow a held layer key.
+ * Mute (left knob press) and middle click (right knob press)
+ * sit on every layer, as they did in stock.
+ *
+ * Position order follows default_transform in the board's cornix-layouts.dtsi:
+ * left half left-to-right, then right half left-to-right; row 2 carries the
+ * two knob presses between the halves.
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/pointing.h>
+
+#define BASE  0
+#define NUM   1   // red dot, orange legends
+#define BT_R  2   // green dot, green legends
+#define LOWER 3   // green legends, same as BT_R
+#define RAISE 4   // empty in stock
+#define SPARE 5   // empty in stock, unreachable
+
+#define KNOBS &kp C_MUTE &mkp MCLK
+#define ENCODERS <&inc_dec_kp C_VOL_UP C_VOL_DN &scroll_enc>
+
+/ {
+    behaviors {
+        scroll_enc: scroll_encoder {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
+            bindings = <&msc SCRL_DOWN>, <&msc SCRL_UP>;
+            tap-ms = <20>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        base {
+            display-name = "Base";
+            bindings = <
+&kp TAB   &kp Q    &kp W    &kp E   &kp R    &kp T                  &kp Y     &kp U    &kp I      &kp O    &kp P     &kp BSPC
+&kp CAPS  &kp A    &kp S    &kp D   &kp F    &kp G                  &kp H     &kp J    &kp K      &kp L    &kp BSLH  &kp RET
+&kp LSHFT &kp Z    &kp X    &kp C   &kp V    &kp B     KNOBS        &kp N     &kp M    &kp COMMA  &kp DOT  &kp UP    &kp FSLH
+&kp LCTRL &kp LGUI &kp LALT &mo NUM &mo LOWER &kp SPACE             &kp SPACE &mo RAISE &mo BT_R  &kp LEFT &kp DOWN  &kp RIGHT
+            >;
+            sensor-bindings = ENCODERS;
+        };
+
+        num {
+            display-name = "Num";
+            bindings = <
+&kp ESC &kp N1 &kp N2 &kp N3 &kp N4   &kp N5                 &kp N6    &kp N7  &kp N8 &kp N9 &kp N0 &kp DEL
+&none   &none  &none  &none  &kp SEMI &kp MINUS              &kp EQUAL &kp SQT &none  &none  &none  &none
+&trans  &none  &none  &none  &none    &none      KNOBS       &none     &none   &none  &none  &none  &none
+&trans  &trans &trans &none  &none    &none                  &none     &none   &none  &none  &none  &none
+            >;
+            sensor-bindings = ENCODERS;
+        };
+
+        bt_r {
+            display-name = "BT";
+            bindings = <
+&none          &none &none &none &none &none              &none &none &none &none &none &none
+&bt BT_SEL 0   &none &none &none &none &none              &none &none &none &none &none &none
+&bt BT_SEL 1   &none &none &none &none &none   KNOBS      &none &none &none &none &none &none
+&bt BT_SEL 2   &trans &trans &none &none &none              &none &none &none &none &none &none
+            >;
+            sensor-bindings = ENCODERS;
+        };
+
+        lower {
+            display-name = "Lower";
+            bindings = <
+&none          &none &none &none &none &none              &none &none &none &none &none &none
+&bt BT_SEL 0   &none &none &none &none &none              &none &none &none &none &none &none
+&bt BT_SEL 1   &none &none &none &none &none   KNOBS      &none &none &none &none &none &none
+&bt BT_SEL 2   &trans &trans &none &none &none              &none &none &none &none &none &none
+            >;
+            sensor-bindings = ENCODERS;
+        };
+
+        raise {
+            display-name = "Raise";
+            bindings = <
+&none &none &none &none &none &none              &none &none &none &none &none &none
+&none &none &none &none &none &none              &none &none &none &none &none &none
+&trans &none &none &none &none &none   KNOBS      &none &none &none &none &none &none
+&trans &trans &trans &none &none &none              &none &none &none &none &none &none
+            >;
+            sensor-bindings = ENCODERS;
+        };
+
+        spare {
+            display-name = "Spare";
+            bindings = <
+&none &none &none &none &none &none              &none &none &none &none &none &none
+&none &none &none &none &none &none              &none &none &none &none &none &none
+&trans &none &none &none &none &none   KNOBS      &none &none &none &none &none &none
+&trans &trans &trans &none &none &none              &none &none &none &none &none &none
+            >;
+            sensor-bindings = ENCODERS;
+        };
+    };
+};

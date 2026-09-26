@@ -1,0 +1,11 @@
+# Stock firmware dumps: proprietary, never publish
+firmware-backup/
+# Separate repo: github.com/meta-boy/zmk-keyboard-cornix
+firmware/zmk/
+firmware/out/
+firmware/ws/
+firmware/.docker/
+app/.build/
+app/build/
+.DS_Store
+dist/
