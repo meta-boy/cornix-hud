@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @main
@@ -24,8 +25,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let state = KeyboardState.shared
         ble = KeyboardBLE(state: state)
-        link = HUDLink(state: state)
-        overlay = OverlayController(state: state)
+        let link = HUDLink(state: state)
+        self.link = link
+        overlay = OverlayController(state: state) { [weak link] in link?.requestState() }
+
+        // Never leave a layer showing across sleep or a locked screen.
+        let reset: (Notification) -> Void = { _ in state.activeLayer = 0 }
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification,
+                     NSWorkspace.sessionDidResignActiveNotification] {
+            workspace.addObserver(forName: name, object: nil, queue: .main, using: reset)
+        }
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main, using: reset)
     }
 }
 
@@ -46,6 +58,11 @@ struct MenuContent: View {
         Divider()
         Button("Reload keymap from keyboard") { ble?.reloadKeymap() }
         Button("Resync layer state") { link?.requestState() }
+        Divider()
+        Toggle("Open at Login", isOn: Binding(
+            get: { SMAppService.mainApp.status == .enabled },
+            set: { on in try? on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister() }
+        ))
         Divider()
         Button("Quit Cornix HUD") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }

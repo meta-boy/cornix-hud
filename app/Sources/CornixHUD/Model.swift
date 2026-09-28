@@ -37,6 +37,8 @@ final class KeyboardState: ObservableObject {
     @Published var profile: Int?
     @Published var profileConnected = false
     @Published var shiftHeld = false
+    /// When the keyboard last sent layer state; the overlay hides if this goes stale.
+    var lastReport: Date?
 
     init() {
         let cached = KeymapLoader.cached()

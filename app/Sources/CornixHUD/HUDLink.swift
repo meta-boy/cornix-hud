@@ -18,6 +18,8 @@ final class HUDLink {
     private let manager: IOHIDManager
     private var device: IOHIDDevice?
     private let inputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: reportSize)
+    /// A Bluetooth HID write can block for milliseconds; keep it off the main thread.
+    private let sendQueue = DispatchQueue(label: "cornix-hud.hid-send")
 
     init(state: KeyboardState) {
         self.state = state
@@ -63,14 +65,21 @@ final class HUDLink {
         var request = [UInt8](repeating: 0, count: Self.reportSize)
         request[0] = Self.magic
         request[1] = 0x01
-        IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, 0, request, request.count)
+        sendQueue.async {
+            IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, 0, request, request.count)
+        }
     }
 
     private func handle(_ report: [UInt8]) {
         guard report.count >= 10, report[0] == Self.magic, report[2] == 0x01 else { return }
-        state.hudLinked = true
-        state.activeLayer = Int(report[7])
-        state.profile = Int(report[8])
-        state.profileConnected = report[9] != 0
+        state.lastReport = Date()
+        // Only publish changes: the overlay's heartbeat asks four times a second.
+        func set<T: Equatable>(_ path: ReferenceWritableKeyPath<KeyboardState, T>, _ value: T) {
+            if state[keyPath: path] != value { state[keyPath: path] = value }
+        }
+        set(\.hudLinked, true)
+        set(\.activeLayer, Int(report[7]))
+        set(\.profile, Int(report[8]))
+        set(\.profileConnected, report[9] != 0)
     }
 }

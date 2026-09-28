@@ -15,12 +15,15 @@ final class OverlayController {
     private let panel: NSPanel
     private let state: KeyboardState
     private let content = OverlayContent()
+    private let requestState: () -> Void
     private var subscription: AnyCancellable?
-    private var shiftPoll: Timer?
+    private var watch: Timer?
     private var fadingOut = false
+    private var forceHide: DispatchWorkItem?
 
-    init(state: KeyboardState) {
+    init(state: KeyboardState, requestState: @escaping () -> Void) {
         self.state = state
+        self.requestState = requestState
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 860, height: 380),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -51,9 +54,22 @@ final class OverlayController {
     }
 
     private func setVisible(_ visible: Bool) {
-        watchShift(visible)
+        watchWhileVisible(visible)
         guard visible != (panel.isVisible && !fadingOut) else { return }
         fadingOut = !visible
+        forceHide?.cancel()
+        forceHide = nil
+        if !visible {
+            // Finally: whatever the fade does, the panel is off screen shortly after.
+            let hide = DispatchWorkItem { [weak self] in
+                guard let self, self.state.overlayLayer == nil else { return }
+                self.panel.alphaValue = 0
+                self.panel.orderOut(nil)
+                self.fadingOut = false
+            }
+            forceHide = hide
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: hide)
+        }
         if visible, !panel.isVisible {
             positionOnActiveScreen()
             panel.alphaValue = 0
@@ -69,25 +85,36 @@ final class OverlayController {
         })
     }
 
-    /// Shift reaches macOS as an ordinary modifier, so read the session's
-    /// modifier state while the overlay is up. Polling needs no Input
-    /// Monitoring permission, unlike a global event tap.
-    private func watchShift(_ visible: Bool) {
-        guard visible != (shiftPoll != nil) else { return }
-        shiftPoll?.invalidate()
-        shiftPoll = nil
+    /// While the overlay is up:
+    /// - Shift: it reaches macOS as an ordinary modifier, so read the session's
+    ///   modifier state (no Input Monitoring permission needed, unlike an event tap).
+    /// - Heartbeat: ask the keyboard for its layer four times a second, so a
+    ///   lost "released" report can't leave the overlay up.
+    /// - Staleness: if the keyboard stops answering for a second, assume the
+    ///   layer was released and hide.
+    private func watchWhileVisible(_ visible: Bool) {
+        guard visible != (watch != nil) else { return }
+        watch?.invalidate()
+        watch = nil
         guard visible else {
             if state.shiftHeld { state.shiftHeld = false }
             return
         }
-        let poll = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
-            guard let state = self?.state else { return }
+        var tick = 0
+        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+            guard let self else { return }
             let held = CGEventSource.flagsState(.combinedSessionState).contains(.maskShift)
-            if held != state.shiftHeld { state.shiftHeld = held }
+            if held != self.state.shiftHeld { self.state.shiftHeld = held }
+
+            tick += 1
+            if tick % 8 == 0 { self.requestState() }
+            if let last = self.state.lastReport, Date().timeIntervalSince(last) > 1.0 {
+                self.state.activeLayer = 0
+            }
         }
-        RunLoop.main.add(poll, forMode: .common)
-        poll.fire()
-        shiftPoll = poll
+        RunLoop.main.add(timer, forMode: .common)
+        timer.fire()
+        watch = timer
     }
 
     /// Bottom centre of the screen the pointer is on.

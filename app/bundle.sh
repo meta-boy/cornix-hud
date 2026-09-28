@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build CornixHUD.app (menu-bar only, ad-hoc signed) into ./build.
-#   ./bundle.sh && open build/CornixHUD.app
+#   ./bundle.sh              build only
+#   ./bundle.sh --install    also replace /Applications/CornixHUD.app and launch it
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -30,3 +31,11 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 PLIST
 codesign --force --sign - "$app"
 echo "built $app"
+
+if [ "${1:-}" = "--install" ]; then
+  pkill -x CornixHUD && while pgrep -x CornixHUD >/dev/null; do sleep 0.2; done || true
+  rm -rf /Applications/CornixHUD.app
+  cp -R "$app" /Applications/
+  open /Applications/CornixHUD.app
+  echo "installed /Applications/CornixHUD.app"
+fi
