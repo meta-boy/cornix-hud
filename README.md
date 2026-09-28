@@ -34,8 +34,7 @@ Or build it yourself (Xcode 16+ command line tools):
 
 ```bash
 cd app
-./bundle.sh
-open build/CornixHUD.app
+./bundle.sh --install   # builds, copies to /Applications, launches
 ```
 
 ## Firmware
